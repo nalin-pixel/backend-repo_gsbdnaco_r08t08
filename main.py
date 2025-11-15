@@ -1,6 +1,10 @@
 import os
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional
+
+from database import create_document
 
 app = FastAPI()
 
@@ -14,11 +18,24 @@ app.add_middleware(
 
 @app.get("/")
 def read_root():
-    return {"message": "Hello from FastAPI Backend!"}
+    return {"message": "HAAI Backend OK"}
 
-@app.get("/api/hello")
-def hello():
-    return {"message": "Hello from the backend API!"}
+@app.get("/api/health")
+def api_health():
+    return {"status": "ok"}
+
+class PilotSubmission(BaseModel):
+    clinic_name: str = Field(..., min_length=2, max_length=200)
+    contact_email: EmailStr
+    message: Optional[str] = Field(None, max_length=2000)
+
+@app.post("/api/pilot/submit")
+def pilot_submit(payload: PilotSubmission):
+    try:
+        doc_id = create_document("pilotsubmission", payload)
+        return {"ok": True, "id": doc_id}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/test")
 def test_database():
@@ -63,7 +80,6 @@ def test_database():
     response["database_name"] = "✅ Set" if os.getenv("DATABASE_NAME") else "❌ Not Set"
     
     return response
-
 
 if __name__ == "__main__":
     import uvicorn
